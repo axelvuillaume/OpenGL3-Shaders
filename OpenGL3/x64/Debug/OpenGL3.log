@@ -1,0 +1,4 @@
+﻿  OpenGL3.cpp
+H:\Documents\Le coding\C++\OpenGL3\OpenGL3\OpenGL3.cpp(96,57): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
+H:\Documents\Le coding\C++\OpenGL3\OpenGL3\OpenGL3.cpp(117,57): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
+  OpenGL3.vcxproj -> H:\Documents\Le coding\C++\OpenGL3\x64\Debug\OpenGL3.exe
