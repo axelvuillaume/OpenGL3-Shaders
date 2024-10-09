@@ -1,6 +1,7 @@
 #version 430
 in vec4 v_coord;
 in vec3 v_normal;
+in vec2 v_texcoord; 
 uniform mat4 MV; // ModelView
 uniform mat4 MVP; // Projection * ModelView
 uniform mat3 NM; // Normal Matrix

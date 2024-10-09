@@ -2,6 +2,7 @@
 
 in vec4 v_coord;  // Coordonnées du vertex
 in vec3 v_normal; // Normale du vertex
+in vec2 v_texcoord; 
 uniform mat4 MV;  // Matrice ModelView
 uniform mat4 MVP; // Matrice Projection * ModelView
 uniform mat3 NM;  // Matrice des normales

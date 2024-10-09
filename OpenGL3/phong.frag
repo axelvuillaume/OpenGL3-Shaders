@@ -25,20 +25,24 @@ void main()
     // Calculer le vecteur réfléchi
     vec3 R = reflect(-L, normalizedNormal); 
 
+    // Convertir lightColor en vec4
+    vec4 lightColor4 = vec4(lightColor, 1.0);
+
     // Calculer les termes d'illumination
     // Couleur ambiante
-    vec4 amb = Ka * lightColor;
+    vec4 amb = Ka * lightColor4;
 
     // Couleur diffuse
-    vec4 diff = Kd * lightColor * max(dot(normalizedNormal, L), 0.0);
+    vec4 diff = Kd * lightColor4 * max(dot(normalizedNormal, L), 0.0);
 
     // Couleur spéculaire
-    vec4 spec = Ks * lightColor * pow(max(dot(R, V), 0.0), shininess);
+    vec4 spec = Ks * lightColor4 * pow(max(dot(R, V), 0.0), shininess);
 
     // Appliquer la texture
     vec4 textureColor = texture(tex, gl_FragCoord.xy); // Appliquer la texture
 
     // Combiner les termes d'illumination avec la couleur de la texture
-    fColor = amb + diff + spec * textureColor; // Multiplier le terme spéculaire par la couleur de la texture
+    fColor = (amb + diff + spec) * textureColor; // Multiplier par la couleur de la texture
     fColor = clamp(fColor, 0.0, 1.0); // S'assurer que la couleur reste entre 0 et 1
 }
+

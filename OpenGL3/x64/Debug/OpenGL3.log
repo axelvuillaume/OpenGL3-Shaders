@@ -1,4 +1,5 @@
 ﻿  OpenGL3.cpp
-H:\Documents\Le coding\C++\OpenGL3\OpenGL3\OpenGL3.cpp(96,57): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
-H:\Documents\Le coding\C++\OpenGL3\OpenGL3\OpenGL3.cpp(117,57): warning C4267: 'argument': conversion from 'size_t' to 'GLsizei', possible loss of data
-  OpenGL3.vcxproj -> H:\Documents\Le coding\C++\OpenGL3\x64\Debug\OpenGL3.exe
+C:\Users\Axel\Documents\GitHub\OpenGL3-Shaders\OpenGL3\OpenGL3.cpp(167,57): warning C4267: 'argument' : conversion de 'size_t' en 'GLsizei', perte possible de données
+C:\Users\Axel\Documents\GitHub\OpenGL3-Shaders\OpenGL3\OpenGL3.cpp(183,57): warning C4267: 'argument' : conversion de 'size_t' en 'GLsizei', perte possible de données
+C:\Users\Axel\Documents\GitHub\OpenGL3-Shaders\OpenGL3\OpenGL3.cpp(207,57): warning C4267: 'argument' : conversion de 'size_t' en 'GLsizei', perte possible de données
+  OpenGL3.vcxproj -> C:\Users\Axel\Documents\GitHub\OpenGL3-Shaders\x64\Debug\OpenGL3.exe
