@@ -38,11 +38,10 @@ void main()
     // Couleur spéculaire
     vec4 spec = Ks * lightColor4 * pow(max(dot(R, V), 0.0), shininess);
 
-    // Appliquer la texture
+       // Appliquer la texture
     vec4 textureColor = texture(tex, gl_FragCoord.xy); // Appliquer la texture
 
     // Combiner les termes d'illumination avec la couleur de la texture
     fColor = (amb + diff + spec) * textureColor; // Multiplier par la couleur de la texture
     fColor = clamp(fColor, 0.0, 1.0); // S'assurer que la couleur reste entre 0 et 1
 }
-

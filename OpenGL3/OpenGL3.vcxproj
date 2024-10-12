@@ -137,12 +137,20 @@
     <ClCompile Include="OpenGL3.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="border.frag" />
+    <None Include="border.vert" />
+    <None Include="CelShader.frag" />
+    <None Include="CelShader.vert" />
     <None Include="gouraud.frag" />
     <None Include="gouraud.vert" />
     <None Include="passthrough.frag" />
     <None Include="passthrough.vert" />
     <None Include="phong.frag" />
     <None Include="phong.vert" />
+    <None Include="PostProd.frag" />
+    <None Include="PostProd.vert" />
+    <None Include="shaderTex.frag" />
+    <None Include="shaderTex.vert" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="formule.h" />
