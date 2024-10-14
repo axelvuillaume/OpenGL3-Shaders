@@ -143,10 +143,14 @@
     <None Include="CelShader.vert" />
     <None Include="gouraud.frag" />
     <None Include="gouraud.vert" />
+    <None Include="normal.frag" />
+    <None Include="normal.vert" />
     <None Include="passthrough.frag" />
     <None Include="passthrough.vert" />
     <None Include="phong.frag" />
     <None Include="phong.vert" />
+    <None Include="pixelate.frag" />
+    <None Include="pixelate.vert" />
     <None Include="PostProd.frag" />
     <None Include="PostProd.vert" />
     <None Include="shaderTex.frag" />

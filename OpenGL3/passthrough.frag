@@ -5,5 +5,5 @@ uniform sampler2D tex;
 out vec4 fColor; // final fragment color
 void main()
 {
-fColor = texture(tex, texcoord)*color;
+fColor = texture(tex, texcoord);
 }

@@ -28,6 +28,7 @@ GLuint vaoSuzanneGouraud;
 GLuint vaoSuzannePhong;
 GLuint vaoSuzanneNormals;
 GLuint vbo_mesh_data_normals;
+GLuint vaoSuzanneNormal;
 vector<glm::vec3> vertex_normals;
 GLuint vbo_mesh_data;
 vector<GLfloat> suzanne_mesh_data;
@@ -37,8 +38,14 @@ GLuint border;
 GLuint vaoSuzanneBorder;
 GLuint vaoSuzanneCelShader;
 GLuint shaderTex;
+GLuint pixelate;
+GLuint normal;
+bool framebufferInitialized = false;
 GLuint framebuffer, renderedTexture, depthrenderbuffer;
 GLuint vaoquad, vboquad;
+int TEX_X = SCREEN_X; // Largeur de la texture
+int TEX_Y = SCREEN_Y; // Hauteur de la texture
+int scene = 0;
 float angleX = 0.0f; // rotation around X-axis
 float angleY = 0.0f; // rotation around Y-axis
 bool isDragging = false; // mouse dragging state
@@ -55,61 +62,7 @@ glm::vec3 lightPos(0.0f, 0.0f, 5.0f); // Position de la lumière
 
 using namespace std;
 
-void keyCallback(unsigned char key, int x, int y) {
-	switch (key) {
-	case 'w': // Augmenter la brillance
-		shininess += 0.2f;
-		std::cout << "Shininess: " << shininess << std::endl;
-		break;
-	case 's': // Diminuer la brillance
-		shininess = std::max(shininess - 0.2f, 0.0f);
-		std::cout << "Shininess: " << shininess << std::endl;
-		break;
-	case 'a': // Déplacer la lumière vers la gauche
-		lightPos.x -= 0.5f;
-		std::cout << "Light position: " << lightPos.x << ", " << lightPos.y << ", " << lightPos.z << std::endl;
-		break;
-	case 'd': // Déplacer la lumière vers la droite
-		lightPos.x += 0.5f;
-		std::cout << "Light position: " << lightPos.x << ", " << lightPos.y << ", " << lightPos.z << std::endl;
-		break;
-	case 'q': // Diminuer la composante ambiante
-		Ka -= glm::vec4(0.05f, 0.05f, 0.05f, 0.0f);
-		Ka = glm::max(Ka, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)); // Limiter à un minimum de 0, alpha reste 1.0
-		std::cout << "Ambient: (" << Ka.r << ", " << Ka.g << ", " << Ka.b << ")" << std::endl;
-		break;
-	case 'e': // Augmenter la composante ambiante
-		Ka += glm::vec4(0.05f, 0.05f, 0.05f, 0.0f);
-		std::cout << "Ambient: (" << Ka.r << ", " << Ka.g << ", " << Ka.b << ")" << std::endl;
-		break;
-	case 'z': // Diminuer la composante diffuse
-		Kd -= glm::vec4(0.05f, 0.05f, 0.05f, 0.0f);
-		Kd = glm::max(Kd, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)); // Limiter à un minimum de 0
-		std::cout << "Diffuse: (" << Kd.r << ", " << Kd.g << ", " << Kd.b << ")" << std::endl;
-		break;
-	case 'x': // Augmenter la composante diffuse
-		Kd += glm::vec4(0.05f, 0.05f, 0.05f, 0.0f);
-		std::cout << "Diffuse: (" << Kd.r << ", " << Kd.g << ", " << Kd.b << ")" << std::endl;
-		break;
-	case 'c': // Diminuer la composante spéculaire
-		Ks -= glm::vec4(0.05f, 0.05f, 0.05f, 0.0f);
-		Ks = glm::max(Ks, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)); // Limiter à un minimum de 0
-		std::cout << "Specular: (" << Ks.r << ", " << Ks.g << ", " << Ks.b << ")" << std::endl;
-		break;
-	case 'v': // Augmenter la composante spéculaire
-		Ks += glm::vec4(0.05f, 0.05f, 0.05f, 0.0f);
-		std::cout << "Specular: (" << Ks.r << ", " << Ks.g << ", " << Ks.b << ")" << std::endl;
-		break;
-	case 27: // Échap pour quitter
-		exit(0);
-		break;
-	default:
-		break;
-	}
 
-
-	glutPostRedisplay();
-}
 
 
 float whatTimeIsIt() {
@@ -154,6 +107,32 @@ void idle() {
 }
 
 
+void createFrameBuffer(int X, int Y) {
+	// creates a framebuffer of size (X,Y) with one color attachment (texture) and a depth buffer
+	glGenFramebuffers(1, &framebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+	glGenTextures(1, &renderedTexture);
+	glBindTexture(GL_TEXTURE_2D, renderedTexture);
+	// Give an empty image to OpenGL ( the last "0" )
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, X, Y, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	// Set "renderedTexture" as our color attachment #0
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, renderedTexture, 0);
+	GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
+	glDrawBuffers(1, DrawBuffers); // "1" is the size of DrawBuffers
+	// The depth buffer
+	glGenRenderbuffers(1, &depthrenderbuffer);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthrenderbuffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, X, Y);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthrenderbuffer);
+	// check that framebuffer is ok
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		fprintf(stderr, "Error creating Framebuffer\n"); exit(EXIT_FAILURE);
+	}
+}
+
+
 
 void updateMVP(glm::mat4& Model, glm::mat4& MVP) {
 	glm::mat4 Projection = glm::perspective(glm::radians(45.0f), (float)SCREEN_X / (float)SCREEN_Y, 0.1f, 100.0f);
@@ -166,6 +145,20 @@ void updateMVP(glm::mat4& Model, glm::mat4& MVP) {
 	glUniformMatrix4fv(glGetUniformLocation(passthrough, "MVP"), 1, GL_FALSE, &MVP[0][0]);
 	glUniformMatrix3fv(glGetUniformLocation(passthrough, "NM"), 1, GL_FALSE, &NM[0][0]);
 }
+
+
+void updateMVPNormal(glm::mat4& Model, glm::mat4& MVP) {
+	glm::mat4 Projection = glm::perspective(glm::radians(45.0f), (float)SCREEN_X / (float)SCREEN_Y, 0.1f, 100.0f);
+	glm::mat4 View = glm::lookAt(glm::vec3(0.0f, 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+	glm::mat4 MV = View * Model;
+	MVP = Projection * MV;
+	glm::mat3 NM = glm::transpose(glm::inverse(glm::mat3(MV)));
+
+	glUniformMatrix4fv(glGetUniformLocation(normal, "MVP"), 1, GL_FALSE, &MVP[0][0]);
+	glUniformMatrix3fv(glGetUniformLocation(normal, "NM"), 1, GL_FALSE, &NM[0][0]);
+}
+
 
 void updateMVPGouraud(glm::mat4& Model, glm::mat4& MVP) {
 	glm::mat4 Projection = glm::perspective(glm::radians(45.0f), (float)SCREEN_X / (float)SCREEN_Y, 0.1f, 100.0f);
@@ -217,22 +210,23 @@ void updateMVPCelShader(glm::mat4& Model, glm::mat4& MVP) {
 	glUniformMatrix4fv(glGetUniformLocation(celShader, "modelMatrix"), 1, GL_FALSE, &Model[0][0]);
 }
 
-void display() {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+void initScene1()
+{
+	printf("Scene 1. Qm magnestism Fixed\n");
 
-	
-	
+
 	//passthoough
 	glUseProgram(passthrough);
-	
 
-	/*
+
+	
+	
 	glBindTexture(GL_TEXTURE_2D, textureBMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	*/
 
 	
+
 	glm::mat4 Model1 = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -10.0f));
 	Model1 = glm::rotate(Model1, glm::radians(angleX), glm::vec3(1.0f, 0.0f, 0.0f));
 	Model1 = glm::rotate(Model1, glm::radians(angleY), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -241,11 +235,9 @@ void display() {
 	updateMVP(Model1, MVP1);
 	glBindVertexArray(vaoSuzanne);
 	glDrawArrays(GL_TRIANGLES, 0, suzanne_mesh_data.size() / 9);
-	
 
 
 
-	//gouraud
 	glUseProgram(gouraud);
 	glUniform4fv(glGetUniformLocation(gouraud, "Ka"), 1, &Ka[0]);
 	glUniform4fv(glGetUniformLocation(gouraud, "Kd"), 1, &Kd[0]);
@@ -287,9 +279,9 @@ void display() {
 	glDrawArrays(GL_TRIANGLES, 0, suzanne_mesh_data.size() / 9);
 
 
-	//Cell shading 
-	 
-	
+	//Cell shading
+
+
 	//border
 	glDepthMask(GL_FALSE);
 
@@ -323,16 +315,52 @@ void display() {
 	glCullFace(GL_BACK);
 	glDrawArrays(GL_TRIANGLES, 0, suzanne_mesh_data.size() / 9);
 
-	//quad
-	
-	//glUseProgram(shaderTex); // Utiliser le shader pour le quad
-	//glUniform1f(glGetUniformLocation(shaderTex, "time"), whatTimeIsIt()); // Passer le temps au shader
-	//glBindVertexArray(vaoquad); // Lier le VAO du quad
-	//glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-	
+
+	//passthoough
 	
 
+
 	/*
+	glBindTexture(GL_TEXTURE_2D, textureBMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	*/
+
+	glUseProgram(normal);
+
+	glm::mat4 Model6 = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.0f, -10.0f));
+	Model6 = glm::rotate(Model6, glm::radians(angleX), glm::vec3(1.0f, 0.0f, 0.0f));
+	Model6 = glm::rotate(Model6, glm::radians(angleY), glm::vec3(0.0f, 1.0f, 0.0f));
+
+	glm::mat4 MVP6;
+	updateMVPNormal(Model6, MVP6);
+	glBindVertexArray(vaoSuzanneNormal);
+	glDrawArrays(GL_TRIANGLES, 0, suzanne_mesh_data.size() / 9);
+
+
+
+
+}
+
+
+
+void initScene2()
+{
+	printf("Scene 2. Qm magnestism Fixed\n");
+
+	//quad
+
+	glUseProgram(shaderTex); // Utiliser le shader pour le quad
+	glUniform1f(glGetUniformLocation(shaderTex, "time"), whatTimeIsIt()); // Passer le temps au shader
+	glBindVertexArray(vaoquad); // Lier le VAO du quad
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+}
+void initScene3()
+{
+
+	
+	printf("Scene 3. Qm magnestism Fixed\n");
 	//framebuufer rendu tous ca
 	glViewport(0, 0, SCREEN_X, SCREEN_Y);
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -350,7 +378,7 @@ void display() {
 	//glUniform1i(glGetUniformLocation(passthrough, "tex"), 0);
 
 	// Calculer la matrice MVP pour Suzanne
-	glm::mat4 Model7 = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.0f, -10.0f));
+	glm::mat4 Model7 = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
 	Model7 = glm::rotate(Model7, glm::radians(angleX), glm::vec3(1.0f, 0.0f, 0.0f));
 	Model7 = glm::rotate(Model7, glm::radians(angleY), glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -361,19 +389,27 @@ void display() {
 	glBindVertexArray(vaoSuzanne);
 	glDrawArrays(GL_TRIANGLES, 0, suzanne_mesh_data.size() / 9);
 	
-	*/
-	
-	/*
-	
+
+}
+
+void initScene4()
+{
+	printf("Scene 4. Qm magnestism Fixed\n");
 	//PostProd
 	glViewport(0, 0, SCREEN_X, SCREEN_Y);
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glUseProgram(passthrough);
+
+	glBindTexture(GL_TEXTURE_2D, textureBMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+
 	// Utiliser le shader de l'objet 3D
-	glm::mat4 Model8 = glm::translate(glm::mat4(1.0f), glm::vec3(3.0f, 3.0f, -10.0f));
-	Model8= glm::rotate(Model8, glm::radians(angleX), glm::vec3(1.0f, 0.0f, 0.0f));
+	glm::mat4 Model8 = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
+	Model8 = glm::rotate(Model8, glm::radians(angleX), glm::vec3(1.0f, 0.0f, 0.0f));
 	Model8 = glm::rotate(Model8, glm::radians(angleY), glm::vec3(0.0f, 1.0f, 0.0f));
 	glm::mat4 MVP8;
 	updateMVP(Model8, MVP8); // Mettez à jour la matrice MVP
@@ -381,20 +417,115 @@ void display() {
 	glDrawArrays(GL_TRIANGLES, 0, suzanne_mesh_data.size() / 9);
 
 
+
+	//2pass
 	glViewport(0, 0, SCREEN_X, SCREEN_Y);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glUseProgram(postProd); // Utiliser le shader de post-traitement
+	glUseProgram(pixelate); // Utiliser le shader de post-traitement
+	glUniform1f(glGetUniformLocation(pixelate, "pixelSize"), 0.005f);
 	glBindTexture(GL_TEXTURE_2D, renderedTexture); // Lier la texture rendue
 	glBindVertexArray(vaoquad);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // Dessiner le quad pour le post-traitement
-	*/
+}
 
+void initScene5()
+{
+	printf("Scene 5. Qm magnestism Fixed\n");
+	//PostProd
+	glViewport(0, 0, SCREEN_X, SCREEN_Y);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glUseProgram(passthrough);
+
+	glBindTexture(GL_TEXTURE_2D, textureBMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+
+	// Utiliser le shader de l'objet 3D
+	glm::mat4 Model8 = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));
+	Model8 = glm::rotate(Model8, glm::radians(angleX), glm::vec3(1.0f, 0.0f, 0.0f));
+	Model8 = glm::rotate(Model8, glm::radians(angleY), glm::vec3(0.0f, 1.0f, 0.0f));
+	glm::mat4 MVP8;
+	updateMVP(Model8, MVP8); // Mettez à jour la matrice MVP
+	glBindVertexArray(vaoSuzanne);
+	glDrawArrays(GL_TRIANGLES, 0, suzanne_mesh_data.size() / 9);
+
+
+
+	//2pass
+	glViewport(0, 0, SCREEN_X, SCREEN_Y);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glUseProgram(postProd); // Utiliser le shader de post-traitement
+	glUniform1f(glGetUniformLocation(postProd, "SIZEX"), SCREEN_X);
+	glUniform1f(glGetUniformLocation(postProd, "SIZEY"), SCREEN_Y);
+	glBindTexture(GL_TEXTURE_2D, renderedTexture); // Lier la texture rendue
+	glBindVertexArray(vaoquad);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4); // Dessiner le quad pour le post-traitement
+}
+
+
+void cleanup()
+{
+	glDeleteVertexArrays(1, &vaoSuzanne);
+	glDeleteBuffers(1, &vbo_mesh_data);
+	glDeleteTextures(1, &renderedTexture);
+	glDeleteRenderbuffers(1, &depthrenderbuffer);
+	glDeleteFramebuffers(1, &framebuffer);
+
+}
+
+void toggleScene(int s)
+{
+
+
+	//cleanup();
+	scene = s;
+
+
+	switch (scene)
+	{
+	case 1: initScene1(); break;
+	case 2: initScene2(); break;
+	case 3: 
+		if (!framebufferInitialized) {
+			createFrameBuffer(TEX_X, TEX_Y);  // Créer une seule fois le framebuffer
+			framebufferInitialized = true;
+		}
+		initScene3();
+		break;
+	case 4: 
+		if (!framebufferInitialized) {
+			createFrameBuffer(TEX_X, TEX_Y);
+			framebufferInitialized = true;
+		}
+		initScene4(); 
+		break;
+	case 5: initScene5(); break;
+	}
+}
+
+
+
+void display() {
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	toggleScene(scene);
 	
 
 	glutSwapBuffers();
 }
+
+
+
+
+
+
 
 void initQuad()
 {
@@ -411,30 +542,6 @@ void initQuad()
 }
 
 
-void createFrameBuffer(int X, int Y) {
-	// creates a framebuffer of size (X,Y) with one color attachment (texture) and a depth buffer
-	glGenFramebuffers(1, &framebuffer);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-	glGenTextures(1, &renderedTexture);
-	glBindTexture(GL_TEXTURE_2D, renderedTexture);
-	// Give an empty image to OpenGL ( the last "0" )
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, X, Y, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	// Set "renderedTexture" as our color attachment #0
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, renderedTexture, 0);
-	GLenum DrawBuffers[1] = { GL_COLOR_ATTACHMENT0 };
-	glDrawBuffers(1, DrawBuffers); // "1" is the size of DrawBuffers
-	// The depth buffer
-	glGenRenderbuffers(1, &depthrenderbuffer);
-	glBindRenderbuffer(GL_RENDERBUFFER, depthrenderbuffer);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, X, Y);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthrenderbuffer);
-	// check that framebuffer is ok
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		fprintf(stderr, "Error creating Framebuffer\n"); exit(EXIT_FAILURE);
-	}
-}
 
 
 
@@ -447,11 +554,9 @@ void init() {
 	border = initShaders("border.vert","border.frag");
 	shaderTex = initShaders("shaderTex.vert", "shaderTex.frag");
 	postProd = initShaders("PostProd.vert", "PostProd.frag");
+	pixelate = initShaders("pixelate.vert", "pixelate.frag");
+	normal = initShaders("normal.vert", "normal.frag");
 	load_obj("suzanne.obj", suzanne_mesh_data);
-
-	//int TEX_X = SCREEN_X; // Largeur de la texture
-	//int TEX_Y = SCREEN_Y; // Hauteur de la texture
-	//createFrameBuffer(TEX_X, TEX_Y);
 
 
 
@@ -584,6 +689,28 @@ void init() {
 	glEnableVertexAttribArray(attribute5);
 	glVertexAttribPointer(attribute5, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
 
+
+	//normal
+
+		//vao
+	glGenVertexArrays(1, &vaoSuzanneNormal);
+	glBindVertexArray(vaoSuzanneNormal);
+
+
+	GLuint attribute6;
+	attribute6 = glGetAttribLocation(normal, "v_coord");
+	glEnableVertexAttribArray(attribute6);
+	glVertexAttribPointer(attribute6, 4, GL_FLOAT, GL_FALSE, 9 * sizeof(GLfloat), (GLvoid*)0);
+
+	attribute6 = glGetAttribLocation(normal, "v_texcoord");
+	glEnableVertexAttribArray(attribute6);
+	glVertexAttribPointer(attribute6, 2, GL_FLOAT, GL_FALSE, 9 * sizeof(GLfloat), (GLvoid*)(4 * sizeof(GLfloat)));
+
+	attribute6 = glGetAttribLocation(normal, "v_normal");
+	glEnableVertexAttribArray(attribute6);
+	glVertexAttribPointer(attribute6, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
+
+
 	////vbonormals
 	//glGenBuffers(1, &vbo_mesh_data_normals);
 	//glBindBuffer(GL_ARRAY_BUFFER, vbo_mesh_data_normals);
@@ -603,14 +730,88 @@ void init() {
 
 
 
-void cleanup()
-{
-		glDeleteVertexArrays(1, &vaoSuzanne);
-		glDeleteBuffers(1, &vbo_mesh_data);
-		glDeleteTextures(1, &renderedTexture);
-		glDeleteRenderbuffers(1, &depthrenderbuffer);
-		glDeleteFramebuffers(1, &framebuffer);
+
+
+
+
+
+
+
+
+void keyCallback(unsigned char key, int x, int y) {
+	switch (key) {
+	case 'w': // Augmenter la brillance
+		shininess += 0.2f;
+		std::cout << "Shininess: " << shininess << std::endl;
+		break;
+	case 's': // Diminuer la brillance
+		shininess = std::max(shininess - 0.2f, 0.0f);
+		std::cout << "Shininess: " << shininess << std::endl;
+		break;
+	case 'a': // Déplacer la lumière vers la gauche
+		lightPos.x -= 0.5f;
+		std::cout << "Light position: " << lightPos.x << ", " << lightPos.y << ", " << lightPos.z << std::endl;
+		break;
+	case 'd': // Déplacer la lumière vers la droite
+		lightPos.x += 0.5f;
+		std::cout << "Light position: " << lightPos.x << ", " << lightPos.y << ", " << lightPos.z << std::endl;
+		break;
+	case 'q': // Diminuer la composante ambiante
+		Ka -= glm::vec4(0.05f, 0.05f, 0.05f, 0.0f);
+		Ka = glm::max(Ka, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)); // Limiter à un minimum de 0, alpha reste 1.0
+		std::cout << "Ambient: (" << Ka.r << ", " << Ka.g << ", " << Ka.b << ")" << std::endl;
+		break;
+	case 'e': // Augmenter la composante ambiante
+		Ka += glm::vec4(0.05f, 0.05f, 0.05f, 0.0f);
+		std::cout << "Ambient: (" << Ka.r << ", " << Ka.g << ", " << Ka.b << ")" << std::endl;
+		break;
+	case 'z': // Diminuer la composante diffuse
+		Kd -= glm::vec4(0.05f, 0.05f, 0.05f, 0.0f);
+		Kd = glm::max(Kd, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)); // Limiter à un minimum de 0
+		std::cout << "Diffuse: (" << Kd.r << ", " << Kd.g << ", " << Kd.b << ")" << std::endl;
+		break;
+	case 'x': // Augmenter la composante diffuse
+		Kd += glm::vec4(0.05f, 0.05f, 0.05f, 0.0f);
+		std::cout << "Diffuse: (" << Kd.r << ", " << Kd.g << ", " << Kd.b << ")" << std::endl;
+		break;
+	case 'c': // Diminuer la composante spéculaire
+		Ks -= glm::vec4(0.05f, 0.05f, 0.05f, 0.0f);
+		Ks = glm::max(Ks, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)); // Limiter à un minimum de 0
+		std::cout << "Specular: (" << Ks.r << ", " << Ks.g << ", " << Ks.b << ")" << std::endl;
+		break;
+	case 'v': // Augmenter la composante spéculaire
+		Ks += glm::vec4(0.05f, 0.05f, 0.05f, 0.0f);
+		std::cout << "Specular: (" << Ks.r << ", " << Ks.g << ", " << Ks.b << ")" << std::endl;
+		break;
+	case 27: // Échap pour quitter
+		exit(0);
+		break;
+	default:
+		break;
+	case '1':
+		toggleScene(1);
+		break;
+	case '2':
+		toggleScene(2);
+		break;
+	case '3':
+		toggleScene(3);
+		break;
+
+	case '4':
+		toggleScene(4);
+		break;
+
+	case '5':
+		toggleScene(5);
+		break;
+
+	}
+
+
+	glutPostRedisplay();
 }
+
 
 int main(int argc, char** argv)
 {
@@ -634,6 +835,7 @@ int main(int argc, char** argv)
 	fprintf(stdout, "Using GLEW %s\n", glewGetString(GLEW_VERSION));
 	initQuad();
 	init();
+	toggleScene(1);
 	glutDisplayFunc(display);
 	glutMouseFunc(mouseButton);
 	glutMotionFunc(mouseMotion);

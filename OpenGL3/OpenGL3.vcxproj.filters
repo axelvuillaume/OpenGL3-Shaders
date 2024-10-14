@@ -37,6 +37,10 @@
     <None Include="CelShader.frag" />
     <None Include="PostProd.vert" />
     <None Include="PostProd.frag" />
+    <None Include="pixelate.frag" />
+    <None Include="pixelate.vert" />
+    <None Include="normal.vert" />
+    <None Include="normal.frag" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="formule.h">
